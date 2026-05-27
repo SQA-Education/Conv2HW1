@@ -116,7 +116,7 @@
    Edit the values below when the Conversation Google Form is ready.
    1. FORM_URL  — must end in /formResponse  (NOT /viewform)
    2. ENTRY     — the entry.* field IDs from that form
-   3. TEACHERS  — names shown in the dropdown
+   3. CLASSES   — each class section the student can pick
    Nothing else in this file needs to change.
    ===================================================================== */
 const CONFIG = {
@@ -125,26 +125,31 @@ const CONFIG = {
      Get them from the form's "Get pre-filled link" option.
      The form must feed sheet 1lKxckGIQsiXEUYOioGMZ-d900Wb06c4v5kteqKz1Bss (gid 1488443639).
      PLACEHOLDER below = A2 form, so the file runs before the real form exists. */
-  FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLScxGsRNBL0knEUNZNnTX3FLDx22Lxgc-J7uM4yvi-yuK-hHAQ/formResponse",
+  FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdpV-n3g-5-UdGt7H7_dqgoDbSRkWwITqJgcov-njtV8ft6_g/formResponse",
 
   /* Each ENTRY maps to one SHEET COLUMN, in the sheet's order: */
   ENTRY: {
-    studentName:  "entry.1066076854",  // -> Student Name
-    classCode:    "entry.351193357",   // -> Class
-    session:      "entry.2003686479",  // -> Session
-    listening:    "entry.985159923",   // -> Listening score
-    vocab:        "entry.2097271288",  // -> Vocabulary score
-    writing:      "entry.1129535850",  // -> Writing score
-    speaking:     "entry.1504049138",  // -> Speaking score
-    grammar:      "entry.1853593873",  // -> Grammar score  (Language-in-Use lives here)
-    percent:      "entry.388860548",   // -> Total %
-    writingText:  "entry.880068307",   // -> Student's writing text
-    aiFeedback:   "entry.514421492",   // -> AI writing feedback (spoken transcript rides here)
-    teacher:      "entry.TEACHER_ID"   // -> teacher  (replace with the real entry id)
+    studentName:  "entry.154629934",  // -> Student Name
+    classCode:    "entry.771629595",   // -> Class
+    session:      "entry.1564061356",  // -> Session
+    listening:    "entry.1994438750",   // -> Listening score
+    vocab:        "entry.1169985852",  // -> Vocabulary score
+    writing:      "entry.66378887",  // -> Writing score
+    speaking:     "entry.665897330",  // -> Speaking score
+    grammar:      "entry.1528226896",  // -> Grammar score  (Language-in-Use lives here)
+    percent:      "entry.543147037",   // -> Total %
+    writingText:  "entry.301386877",   // -> Student's writing text
+    aiFeedback:   "entry.1035810181",   // -> AI writing feedback (spoken transcript rides here)
+    teacher:      "entry.1451249480"   // -> teacher
   },
 
-  TEACHERS: ["Laura"],
-  CLASS_CODE: "Conversation",                 // edit to the real class code
+  /* Each class section the student can choose. The dashboard routes by the
+     "code" — only that bare number is sent to the sheet's Class column.
+     "label" is just what the student sees in the dropdown. */
+  CLASSES: [
+    {code:"3096", label:"3096 \u2014 Morning (9:00 AM) \u2014 Laura Ebel",   teacher:"Laura Ebel"},
+    {code:"3090", label:"3090 \u2014 Evening (6:30 PM) \u2014 Laura Ebel",   teacher:"Laura Ebel"}
+  ],
   SESSION_LABEL: "Term III - Week 1 - Class 1"
 };
 </script>
@@ -156,7 +161,7 @@ const CONFIG = {
 <div class="screen active" id="s0">
   <div class="brand">English Class · SQA Education</div>
   <h1>Beyond the Business Card</h1>
-  <div class="sub">Conversation Course · Term III · Week 1 · Class 1<br>
+  <div class="sub">Conversation Course · Week 1 · Class 1<br>
   <strong>Hook · Value · Ask — your power-up pitch</strong></div>
 
   <div class="passage" style="border-left-color:var(--gold);">
@@ -172,8 +177,8 @@ const CONFIG = {
     <input type="text" id="studentName" placeholder="Type your full name">
   </div>
   <div class="gap">
-    <label>Your teacher</label>
-    <select id="teacherName"></select>
+    <label>Your class</label>
+    <select id="classSelect"></select>
   </div>
   <button class="btn" onclick="go(1)">Start →</button>
 </div>
@@ -282,6 +287,12 @@ const CONFIG = {
   <div class="scorebig" id="finalPct">0%</div>
   <div class="scoreline" id="finalLine">—</div>
   <div class="breakdown" id="breakdown"></div>
+  <div style="background:var(--lilac);border:1px solid var(--line);border-radius:11px;
+       padding:12px 15px;font-size:.88rem;color:var(--purple-dark);margin:4px 0 8px;">
+    ℹ️ This score shows the <strong>75 auto-graded points</strong> (reading/listening,
+    vocabulary, speaking, language). Your <strong>writing is worth 25 more points</strong>
+    and will be graded by your teacher — so your final mark will be higher than the number above.
+  </div>
   <p style="font-size:.9rem;color:var(--muted);">Your answers, writing, and spoken
   pitch are recorded below. Press Finish to send everything to your teacher.</p>
   <button class="btn" id="finishBtn" onclick="submitAll()">Finish →</button>
@@ -301,14 +312,15 @@ const CONFIG = {
 /* ---------- state ---------- */
 const STATE = {reading:0,vocab:0,writing:0,speaking:0,lu:0,
   writingText:"",spokenText:"",speakSecs:0};
-const MAX = {reading:20,vocab:20,writing:25,speaking:25,lu:10}; // speaking-forward weighting
-const TOTAL = 100;
+const MAX = {reading:20,vocab:20,writing:0,speaking:25,lu:10}; // writing graded by teacher
+const TOTAL = 100; // writing (25 pts) graded by teacher, counts 0 until then
 
 /* ---------- populate teachers ---------- */
 (function(){
-  const sel=document.getElementById('teacherName');
-  CONFIG.TEACHERS.forEach(t=>{
-    const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);
+  const sel=document.getElementById('classSelect');
+  CONFIG.CLASSES.forEach((c,i)=>{
+    const o=document.createElement('option');
+    o.value=i;o.textContent=c.label;sel.appendChild(o);
   });
 })();
 
@@ -437,33 +449,10 @@ function checkWriting(){
   const fb=document.getElementById('writingFb');
   const words=txt.split(/\s+/).filter(Boolean);
   const sentences=txt.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean);
-  const low=txt.toLowerCase();
-  const powerHits=[...new Set(POWER_WORDS.filter(w=>low.includes(w)))];
-
-  // ---- loose, generous scoring (mirrors A2 rules) ----
-  let score=0;
-  // length / effort — up to 12
-  if(words.length>=80)score+=12;
-  else if(words.length>=50)score+=10;
-  else if(words.length>=30)score+=8;
-  else if(words.length>=15)score+=5;
-  else if(words.length>=1)score+=2;
-  // power words — up to 9 (3 each)
-  score+=Math.min(powerHits.length,3)*3;
-  // pitch structure — up to 4 (sentence range)
-  if(sentences.length>=6 && sentences.length<=9)score+=4;
-  else if(sentences.length>=4)score+=2;
-  else if(sentences.length>=1)score+=1;
-
-  score=Math.min(score,MAX.writing);
-  STATE.writing=score;
-
-  let msg='<strong>Saved — '+score+'/'+MAX.writing+' points.</strong><br>';
-  msg+='📝 '+words.length+' words · '+sentences.length+' sentences<br>';
-  if(powerHits.length){msg+='💪 Power-up words found: '+powerHits.join(', ');}
-  else{msg+='💡 Tip: add a few power-up words to strengthen your pitch.';}
-  if(sentences.length<6)msg+='<br>👉 Aim for 6–9 sentences for a complete Hook · Value · Ask.';
-  fb.innerHTML=msg;fb.className='feedback show '+(score>=15?'ok':'info');
+  let msg='<strong>Saved \u2014 your teacher will read and grade this.</strong><br>';
+  msg+='\ud83d\udcdd '+words.length+' words \u00b7 '+sentences.length+' sentences';
+  if(words.length<15)msg+='<br>\ud83d\udca1 This looks short \u2014 try to write a bit more before moving on.';
+  fb.innerHTML=msg;fb.className='feedback show info';
   document.getElementById('writingNext').style.display='inline-block';
 }
 
@@ -474,40 +463,62 @@ function fmt(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function toggleRec(){recording?stopRec():startRec();}
 function startRec(){
   secs=0;document.getElementById('timer').textContent='0:00';
+  STATE.spokenText='';
+  const tEl=document.getElementById('transcript');
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=null;
   if(SR){
-    recognition=new SR();recognition.continuous=true;
-    recognition.interimResults=true;recognition.lang='en-US';
-    let finalT='';
-    recognition.onresult=e=>{
-      let interim='';
-      for(let i=e.resultIndex;i<e.results.length;i++){
-        const t=e.results[i][0].transcript;
-        if(e.results[i].isFinal)finalT+=t+' ';else interim+=t;
-      }
-      STATE.spokenText=(finalT+interim).trim();
-      document.getElementById('transcript').textContent=STATE.spokenText||'Listening…';
-    };
-    recognition.onerror=()=>{
+    try{
+      recognition=new SR();
+      recognition.continuous=true;
+      recognition.interimResults=true;
+      recognition.lang='en-US';
+      let finalT='';
+      recognition.onresult=e=>{
+        let interim='';
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          const t=e.results[i][0].transcript;
+          if(e.results[i].isFinal)finalT+=t+' ';else interim+=t;
+        }
+        STATE.spokenText=(finalT+interim).trim();
+        tEl.textContent=STATE.spokenText||'Listening…';
+      };
+      recognition.onerror=ev=>{
+        if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
+          document.getElementById('micStatus').textContent=
+            'Microphone blocked. Allow mic access in your browser, then tap Start again.';
+        } else if(ev.error==='no-speech'){
+          /* harmless on Safari — ignore */
+        } else {
+          document.getElementById('micStatus').textContent=
+            'Speech capture paused — keep speaking out loud, your time still counts.';
+        }
+      };
+      recognition.onend=()=>{
+        /* Safari/iOS stop the engine on their own; restart while still recording */
+        if(recording){try{recognition.start();}catch(e){}}
+      };
+      recognition.start();
+    }catch(e){
+      recognition=null;
       document.getElementById('micStatus').textContent=
-        'Microphone unavailable — keep speaking out loud, then press Next.';
-    };
-    try{recognition.start();}catch(e){}
+        'Speech capture unavailable here — speak out loud, then press Next.';
+    }
   } else {
     document.getElementById('micStatus').textContent=
-      'This browser can\u2019t capture speech — speak out loud, then press Next.';
+      'This browser can\u2019t transcribe speech — speak out loud, then press Next.';
   }
   recording=true;
-  document.getElementById('recBtn').textContent='⏹ Stop';
-  document.getElementById('micStatus').innerHTML='<span class="pulse"></span>Recording — speak your pitch!';
+  document.getElementById('recBtn').textContent='\u23f9 Stop';
+  document.getElementById('micStatus').innerHTML='<span class="pulse"></span>Recording \u2014 speak now!';
   timerInt=setInterval(()=>{secs++;document.getElementById('timer').textContent=fmt(secs);},1000);
 }
 function stopRec(){
   recording=false;
-  if(recognition){try{recognition.stop();}catch(e){}}
+  if(recognition){try{recognition.onend=null;recognition.stop();}catch(e){}}
   clearInterval(timerInt);
   STATE.speakSecs=secs;
-  document.getElementById('recBtn').textContent='🎤 Speak again';
+  document.getElementById('recBtn').textContent='\ud83c\udfa4 Speak again';
   document.getElementById('micStatus').textContent='Stopped. You can speak again or move on.';
   scoreSpeaking();
 }
@@ -593,12 +604,12 @@ function finish(){
     (STATE.reading+STATE.vocab+STATE.writing+STATE.speaking+STATE.lu)/TOTAL*100);
   document.getElementById('finalPct').textContent=pct+'%';
   document.getElementById('finalLine').textContent=
-    pct>=80?'Excellent work!':pct>=60?'Good effort — keep practicing!':'Completed — review and try the speaking again anytime.';
+    (pct>=75?'Top marks on the auto-graded sections!':pct>=50?'Good effort — keep practicing!':'Completed!');
   const bd=document.getElementById('breakdown');
   bd.innerHTML=
     row('Reading comprehension',STATE.reading,MAX.reading)+
     row('Vocabulary',STATE.vocab,MAX.vocab)+
-    row('Writing — HVA pitch',STATE.writing,MAX.writing)+
+    writingRow()+
     row('Speaking — your pitch ⭐',STATE.speaking,MAX.speaking)+
     row('Language in use',STATE.lu,MAX.lu)+
     row('Total',STATE.reading+STATE.vocab+STATE.writing+STATE.speaking+STATE.lu,TOTAL);
@@ -607,6 +618,9 @@ function finish(){
 function row(label,got,max){
   return '<div><span>'+label+'</span><span>'+got+' / '+max+'</span></div>';
 }
+function writingRow(){
+  return '<div><span>Writing</span><span style="color:var(--purple-light);">graded by teacher</span></div>';
+}
 
 /* ===================== SILENT SUBMIT ===================== */
 function submitAll(){
@@ -614,21 +628,20 @@ function submitAll(){
     (STATE.reading+STATE.vocab+STATE.writing+STATE.speaking+STATE.lu)/TOTAL*100);
   const E=CONFIG.ENTRY;
   const data={};
+  const chosen=CONFIG.CLASSES[+document.getElementById('classSelect').value]||CONFIG.CLASSES[0];
   // mapped to the live sheet column order
   data[E.studentName]=document.getElementById('studentName').value.trim();
-  data[E.classCode]=CONFIG.CLASS_CODE;
+  data[E.classCode]=chosen.code;            // bare class number -> Class column (dashboard routes on this)
   data[E.session]=CONFIG.SESSION_LABEL;
   data[E.listening]=STATE.reading;          // Reading comprehension -> Listening score column
   data[E.vocab]=STATE.vocab;
-  data[E.writing]=STATE.writing;
+  data[E.writing]=""; /* blank — teacher grades writing */
   data[E.speaking]=STATE.speaking;
   data[E.grammar]=STATE.lu;                 // Language-in-Use -> Grammar score column
   data[E.percent]=pct;
   data[E.writingText]=STATE.writingText||'(none)';
   data[E.aiFeedback]="[Spoken pitch transcript] "+(STATE.spokenText||'(none)');
-  if(E.teacher && E.teacher.indexOf('TEACHER_ID')===-1){
-    data[E.teacher]=document.getElementById('teacherName').value;
-  }
+  data[E.teacher]=chosen.teacher;
 
   const f=document.createElement('form');
   f.action=CONFIG.FORM_URL;f.method='POST';f.target='sqa_sink';
